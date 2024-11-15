@@ -15,7 +15,7 @@ var studentSchema = new mongoose.Schema({
     username: String,
     password: String,
     email: String,
-    complaints: [
+    complaint_requests: [
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Complaint"
@@ -25,6 +25,12 @@ var studentSchema = new mongoose.Schema({
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Leave"
+        }
+    ],
+    feedback_requests: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Feedback"
         }
     ],
     lostfound: [

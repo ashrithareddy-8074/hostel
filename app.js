@@ -15,9 +15,11 @@ var host = '0.0.0.0' || process.env.HOST;
 
 var Student = require("./models/student");
 var Admin = require("./models/admin");
-var Complaints = require("./models/complaints");
+var Complaint = require("./models/complaints");
 var Leave = require("./models/leave_requests");
+var Notice = require("./models/notice");
 var LostFound = require("./models/lost_found");
+const Feedback = require("./models/feedback");
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 
@@ -64,7 +66,6 @@ app.use(function (req, res, next) {
 
 app.get("/", function (req, res) {
     res.render("landing2");
-    //res.send("server is up and running.");
 });
 
 app.get("/viewhostels", function (req, res) {
@@ -81,20 +82,13 @@ app.get("/adminlogin", function (req, res) {
 
 app.post("/studentlogin", async function (req, res) {
     try {
-        console.log("Hello");
-        console.log(req.body.username);
-        console.log(req.body.password);
-
         const found = await Student.find({ username: req.body.username });
 
         if (found.length > 0 && found[0].password === req.body.password) {
             res.redirect("/home/student/" + found[0]._id);
-            console.log("success");
         } else {
             req.flash('error_msg', 'Invalid username or password.');
             res.redirect("/studentlogin");
-            console.log(found);
-            console.log("actual pass = " + (found[0]?.password || "not found"));
         }
     } catch (err) {
         req.flash('error_msg', 'Something went wrong. Please try again.');
@@ -105,23 +99,155 @@ app.post("/studentlogin", async function (req, res) {
 
 app.post("/adminlogin", async function (req, res) {
     try {
-        console.log("Hello");
-        console.log(req.body.username);
-        console.log(req.body.password);
-
         const found = await Student.find({ username: req.body.username });
 
         if (found.length > 0 && found[0].password === req.body.password) {
             res.redirect("/home/admin");
-            console.log("success");
         } else {
             res.redirect("/adminlogin");
-            console.log(found);
-            console.log("actual pass = " + (found[0]?.password || "not found"));
         }
     } catch (err) {
         console.error(err);
         res.redirect("/adminlogin");
+    }
+});
+
+app.get("/home/student/:id", async function (req, res) {
+    try {
+       
+        
+        const student = await Student.findById(req.params.id).exec();
+        const notices = await Notice.find({});
+        if (student) {
+            res.render("studenthome", { student, notices });
+        } else {
+            req.flash('error_msg', 'Student not found.');
+            res.redirect("/studentlogin");
+        }
+    } catch (err) {
+        req.flash('error_msg', 'Something went wrong. Please try again.');
+        console.error(err);
+        res.redirect("/studentlogin");
+    }
+});
+
+app.get("/leave_request/:id", async function (req, res) {
+    const student = await Student.findById(req.params.id);
+    res.render("leave_form", {student});
+});
+
+app.post("/leave_request/:id", async function (req, res) {
+    try {
+        const leave =new Leave(req.body);
+        leave.autor = req.params.id;
+        const student = await Student.findById(req.params.id);
+        student.leave_requests.push(leave);
+        await student.save();
+        await leave.save();
+        console.log("Leave Request add success");
+        res.redirect("/home/student/" + student._id);
+    } catch (err) {
+        console.log(err);
+        res.redirect("errorPage"); 
+    }
+});
+
+app.get("/studentLeaves/:id", async function (req, res) {
+    try{
+        const student = await Student.findById(req.params.id).populate('leave_requests');
+        const leaves = student.leave_requests;
+        res.render("studentLeaves", {leaves});
+    }
+    catch(err){
+        console.log(err);
+    }
+});
+
+app.get("/feedback_request/:id", async function (req, res) {
+    const student = await Student.findById(req.params.id);
+    res.render("feedback_form", {student});
+});
+
+app.post("/feedback_request/:id", async function (req, res) {
+    try {
+        const feedback =new Feedback(req.body);
+        feedback.autor = req.params.id;
+        const student = await Student.findById(req.params.id);
+        student.feedback_requests.push(feedback);
+        await student.save();
+        await feedback.save();
+        res.redirect("/home/student/" + student._id);
+    } catch (err) {
+        console.log(err);
+        res.redirect("errorPage"); 
+    }
+});
+
+app.get("/studentFeedbacks/:id", async function (req, res) {
+    try{
+        const student = await Student.findById(req.params.id).populate('feedback_requests');
+        const feedbacks = student.feedback_requests;
+        res.render("studentFeedbacks", {feedbacks, student});
+    }
+    catch(err){
+        console.log(err);
+    }
+});
+
+app.get("/complaint_request/:id", async function (req, res) {
+    const student = await Student.findById(req.params.id);
+    res.render("complaint_form", {student});
+});
+
+app.post("/complaint_request/:id", async function (req, res) {
+    try {
+        const complaint =new Complaint(req.body);
+        complaint.autor = req.params.id;
+        const student = await Student.findById(req.params.id);
+        student.complaint_requests.push(complaint);
+        await student.save();
+        await complaint.save();
+        res.redirect("/home/student/" + student._id);
+    } catch (err) {
+        console.log(err);
+        res.redirect("errorPage"); 
+    }
+});
+
+app.get("/studentComplaints/:id", async function (req, res) {
+    try{
+        const student = await Student.findById(req.params.id).populate('complaint_requests');
+        const complaints = student.complaint_requests;
+        res.render("studentComplaints", {complaints, student});
+    }
+    catch(err){
+        console.log(err);
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app.get("/displayleaves", async function (req, res) {
+    try {
+        const found = await Leave.find({});
+        console.log("Successfully found " + found);
+        res.render("displayleaves", { leaves: found });
+    } catch (err) {
+        console.error(err);
+        res.redirect("errorPage"); 
     }
 });
 
@@ -138,47 +264,19 @@ app.get("/displaycomplains", async function (req, res) {
     }
 });
 
-app.get("/displayleaves", async function (req, res) {
-    try {
-        console.log("You are here");
 
-        const found = await Leave.find({});
-        console.log("Successfully found " + found);
-        res.render("displayleaves", { leaves: found });
-    } catch (err) {
-        console.error(err);
-        res.redirect("errorPage"); 
-    }
-});
 
 app.get("/forms", function (req, res) {
     res.render("forms");
 });
 
-app.get("/leave_request", function (req, res) {
-    res.render("leave_form");
-});
+
 
 app.get("/logout", function (req, res) {
     res.redirect("/landing2");
 });
 
-app.get("/home/student/:id", async function (req, res) {
-    try {
-        const student = await Student.findById(req.params.id).exec();
 
-        if (student) {
-            res.render("studenthome", { student });
-        } else {
-            req.flash('error_msg', 'Student not found.');
-            res.redirect("/studentlogin");
-        }
-    } catch (err) {
-        req.flash('error_msg', 'Something went wrong. Please try again.');
-        console.error(err);
-        res.redirect("/studentlogin");
-    }
-});
 
 app.get("/home/admin", function (req, res) {
     console.log("login success");
@@ -202,27 +300,6 @@ app.post("/complaint", async function (req, res) {
         res.redirect("errorPage"); 
     }
 });
-
-
-
-app.post("/leave_req", async function (req, res) {
-    try {
-        var leave = {
-            request: req.body.request,
-            author: {
-                username: "STUDENT XYZ"
-            }
-        }
-        const newLeave = await Leave.create(leave);
-        console.log("Leave Request add success");
-        console.log(newLeave);
-        res.redirect("home/student/222");
-    } catch (err) {
-        console.log(err);
-        res.redirect("errorPage"); 
-    }
-});
-
 
 app.post("/leaverequest", async function (req, res) {
     try {
